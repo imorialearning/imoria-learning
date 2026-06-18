@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
-// Direct initialization to avoid import path layout issues on browser
+// Direct initialization to ensure clean variables reading on Vercel
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -21,27 +21,35 @@ interface Subject {
 export default function Home() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchSubjects() {
       try {
+        setErrorMsg(null);
+        // Clean query without filters to fetch all rows safely
         const { data, error } = await supabase
           .from('subjects')
-          .select('*')
-          .eq('is_active', true);
+          .select('*');
         
-        if (!error && data) {
+        if (error) {
+          setErrorMsg(error.message);
+          console.error("Supabase Error:", error);
+        } else if (data) {
           setSubjects(data);
         }
-      } catch (err) {
-        console.error(err);
+      } catch (err: any) {
+        setErrorMsg(err?.message || "An unexpected error occurred");
+        console.error("Catch Error:", err);
       } finally {
         setLoading(false);
       }
     }
+
     if (supabaseUrl && supabaseAnonKey) {
       fetchSubjects();
     } else {
+      setErrorMsg("Vercel Environment Variables are missing or incorrect.");
       setLoading(false);
     }
   }, []);
@@ -70,6 +78,14 @@ export default function Home() {
           </span>
         </div>
 
+        {/* Error Alert Box */}
+        {errorMsg && (
+          <div className="bg-red-900/30 border border-red-500/40 text-red-200 p-4 rounded-xl mb-8 text-sm max-w-xl mx-auto text-center">
+            <strong>Database Alert:</strong> {errorMsg}
+          </div>
+        )}
+
+        {/* Loading State Skeleton */}
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[...Array(6)].map((_, i) => (
@@ -79,22 +95,25 @@ export default function Home() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {subjects.length === 0 ? (
-              <p className="text-[#CBD5E1] text-sm col-span-full text-center py-8">No subjects found. Please check database connections.</p>
+              <div className="col-span-full text-center py-12 bg-[#1A2E42]/50 rounded-xl border border-[#243B55]">
+                <p className="text-[#CBD5E1] text-base mb-2">No active course cards fetched.</p>
+                <p className="text-xs text-[#8892B0]">Please check if the 'subjects' table has rows inserted in Supabase.</p>
+              </div>
             ) : (
               subjects.map((subject) => (
                 <div 
                   key={subject.id} 
-                  className="bg-[#1A2E42] border border-[#C9A84C]/10 rounded-xl p-6 transition-all duration-300 hover:border-[#C9A84C]/40 shadow-sm hover:shadow-md hover:-translate-y-1"
+                  className="bg-[#1A2E42] border border-[#C9A84C]/10 rounded-xl p-6 transition-all duration-300 hover:border-[#C9A84C]/40 shadow-sm hover:shadow-md hover:-translate-y-1 group cursor-pointer"
                 >
                   <div className="flex items-start justify-between mb-4">
-                    <div className="text-4xl bg-[#0D1B2A] p-3 rounded-xl border border-[#243B55]">
+                    <div className="text-4xl bg-[#0D1B2A] p-3 rounded-xl border border-[#243B55] group-hover:border-[#C9A84C]/20 transition-all">
                       {subject.icon || '📖'}
                     </div>
-                    <span className="text-xs font-bold px-2.5 py-1 rounded-full text-white bg-[#243B55] border border-white/5">
+                    <span className="text-xs font-bold px-2.5 py-1 rounded-full text-white bg-[#243B55] border border-white/5 font-mono">
                       {subject.code}
                     </span>
                   </div>
-                  <h3 className="text-xl text-[#C9A84C] font-semibold mb-2 line-clamp-1">
+                  <h3 className="text-xl text-[#C9A84C] font-semibold mb-2 line-clamp-1 group-hover:text-[#E8C97A] transition-colors">
                     {subject.name}
                   </h3>
                   <p className="text-[#CBD5E1] text-sm leading-relaxed line-clamp-2">
