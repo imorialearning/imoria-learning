@@ -1,7 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { createClient } from '@supabase/supabase-js';
+
+// Direct initialization to avoid import path layout issues on browser
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 interface Subject {
   id: string;
@@ -19,30 +24,39 @@ export default function Home() {
 
   useEffect(() => {
     async function fetchSubjects() {
-      const { data, error } = await supabase
-        .from('subjects')
-        .select('*')
-        .eq('is_active', true);
-      
-      if (!error && data) {
-        setSubjects(data);
+      try {
+        const { data, error } = await supabase
+          .from('subjects')
+          .select('*')
+          .eq('is_active', true);
+        
+        if (!error && data) {
+          setSubjects(data);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
       }
+    }
+    if (supabaseUrl && supabaseAnonKey) {
+      fetchSubjects();
+    } else {
       setLoading(false);
     }
-    fetchSubjects();
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#0D1B2A] text-white font-sans antialiased">
+    <div className="min-h-screen bg-[#0D1B2A] text-white font-sans antialiased selection:bg-[#C9A84C] selection:text-[#0D1B2A]">
       {/* Hero Section */}
       <header className="max-w-6xl mx-auto px-4 pt-20 pb-16 text-center space-y-6">
-        <h1 className="font-serif text-5xl md:text-7xl text-[#C9A84C] font-bold tracking-wide transition-all">
+        <h1 className="text-5xl md:text-7xl text-[#C9A84C] font-bold tracking-wide">
           IMORIA LEARNING
         </h1>
         <p className="text-[#CBD5E1] text-xl md:text-2xl tracking-wider max-w-2xl mx-auto font-light">
           Learn Smart. Rise Beyond.
         </p>
-        <div className="inline-flex items-center gap-2 bg-[#1A2E42] border border-[#C9A84C]/20 px-5 py-2.5 rounded-full text-sm font-medium text-[#E8C97A] shadow-lg shadow-black/30">
+        <div className="inline-flex items-center gap-2 bg-[#1A2E42] border border-[#C9A84C]/20 px-5 py-2.5 rounded-full text-sm font-medium text-[#E8C97A] shadow-lg">
           <span>📍</span> BS English Semester-III • BZU Multan
         </div>
       </header>
@@ -51,40 +65,44 @@ export default function Home() {
       <main className="max-w-6xl mx-auto px-4 pb-24">
         <div className="flex items-center justify-between border-b border-[#243B55] pb-4 mb-10">
           <h2 className="text-2xl font-bold tracking-wide text-white">Course Subjects</h2>
-          <span className="text-xs bg-[#243B55] uppercase tracking-widest text-[#CBD5E1] px-3 py-1 rounded-md font-mono">
+          <span className="text-xs bg-[#243B55] uppercase tracking-widest text-[#CBD5E1] px-3 py-1 rounded-md">
             {loading ? 'Loading...' : `${subjects.length} Active`}
           </span>
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[...Array(6)].map((_, i) => (
-              <div key={i} className="h-44 bg-[#1A2E42] rounded-xl border border-[#243B55]"></div>
+              <div key={i} className="h-44 bg-[#1A2E42] rounded-xl border border-[#243B55] animate-pulse"></div>
             ))}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {subjects.map((subject) => (
-              <div 
-                key={subject.id} 
-                className="bg-[#1A2E42] border border-[#C9A84C]/10 rounded-xl p-6 transition-all duration-300 hover:border-[#C9A84C]/40 hover:shadow-gold-glow hover:-translate-y-1 group cursor-pointer"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="text-4xl bg-[#0D1B2A] p-3 rounded-xl border border-[#243B55] group-hover:border-[#C9A84C]/20 transition-all">
-                    {subject.icon || '📖'}
+            {subjects.length === 0 ? (
+              <p className="text-[#CBD5E1] text-sm col-span-full text-center py-8">No subjects found. Please check database connections.</p>
+            ) : (
+              subjects.map((subject) => (
+                <div 
+                  key={subject.id} 
+                  className="bg-[#1A2E42] border border-[#C9A84C]/10 rounded-xl p-6 transition-all duration-300 hover:border-[#C9A84C]/40 shadow-sm hover:shadow-md hover:-translate-y-1"
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="text-4xl bg-[#0D1B2A] p-3 rounded-xl border border-[#243B55]">
+                      {subject.icon || '📖'}
+                    </div>
+                    <span className="text-xs font-bold px-2.5 py-1 rounded-full text-white bg-[#243B55] border border-white/5">
+                      {subject.code}
+                    </span>
                   </div>
-                  <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-full text-white bg-[#243B55] border border-white/5">
-                    {subject.code}
-                  </span>
+                  <h3 className="text-xl text-[#C9A84C] font-semibold mb-2 line-clamp-1">
+                    {subject.name}
+                  </h3>
+                  <p className="text-[#CBD5E1] text-sm leading-relaxed line-clamp-2">
+                    {subject.description}
+                  </p>
                 </div>
-                <h3 className="font-serif text-xl text-[#C9A84C] font-semibold mb-2 group-hover:text-[#E8C97A] transition-colors line-clamp-1">
-                  {subject.name}
-                </h3>
-                <p className="text-[#CBD5E1] text-sm leading-relaxed line-clamp-2">
-                  {subject.description}
-                </p>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         )}
       </main>
